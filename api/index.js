@@ -9,8 +9,19 @@ export default async function handler(req, res) {
     const { type, uid, limit } = req.query;
 
     // Upload sensor data from ESP32
-    if (type === "upload_sensor" && req.method === "POST") {
-        const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    if (type === "upload_sensor" && (req.method === "POST" || req.method === "GET")) {
+        const raw = req.method === "GET"
+            ? req.query
+            : (typeof req.body === "string" ? JSON.parse(req.body) : req.body);
+
+        // For GET requests, parse numeric fields from query string
+        const body = req.method === "GET" ? {
+            ...raw,
+            temperature: parseFloat(raw.temperature),
+            humidity:    parseFloat(raw.humidity),
+            pressure:    parseFloat(raw.pressure),
+            light:       parseInt(raw.light)
+        } : raw;
         
         // Validate required fields
         const requiredFields = ['UID', 'date', 'time', 'temperature', 'humidity', 'pressure', 'light', 'mold_risk_category'];
