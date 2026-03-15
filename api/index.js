@@ -6,12 +6,10 @@ export default async function handler(req, res) {
         process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    const { type, uid, limit } = req.query;
+    const { type } = req.query;
 
-    // ============================================
-    // 1. UPLOAD SENSOR DATA
-    // ============================================
-    if (type === "upload_sensor" && (req.method === "POST" || req.method === "GET")) {
+    // Upload sensor data
+    if (type === "upload" && (req.method === "POST" || req.method === "GET")) {
         let raw;
         
         try {
@@ -76,150 +74,15 @@ export default async function handler(req, res) {
             mold_risk_category: category
         };
 
-        try {
-            const { error } = await supabase
-                .from('sensor_data')
-                .insert([insertData]);
+        const { error } = await supabase
+            .from('sensor_data')
+            .insert([insertData]);
 
-            if (error) {
-                return res.status(500).json({ error: error.message });
-            }
-            return res.status(201).json({ success: true });
-        } catch (e) {
-            return res.status(500).json({ error: e.message });
+        if (error) {
+            return res.status(500).json({ error: error.message });
         }
+        return res.status(201).json({ success: true });
     }
 
-    // ============================================
-    // 2. GET LATEST SENSOR READING
-    // ============================================
-    if (type === "latest") {
-        if (!uid) {
-            return res.status(400).json({ error: "Missing uid parameter" });
-        }
-
-        try {
-            const { data, error } = await supabase
-                .from('sensor_data')
-                .select('*')
-                .eq('UID', uid)
-                .order('date', { ascending: false })
-                .order('time', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (error && error.code !== 'PGRST116') {
-                return res.status(500).json({ error: error.message });
-            }
-            return res.status(200).json(data || {});
-        } catch (e) {
-            return res.status(500).json({ error: e.message });
-        }
-    }
-
-    // ============================================
-    // 3. GET SENSOR HISTORY
-    // ============================================
-    if (type === "history") {
-        if (!uid) {
-            return res.status(400).json({ error: "Missing uid parameter" });
-        }
-
-        const recordLimit = parseInt(limit) || 100;
-        
-        try {
-            const { data, error } = await supabase
-                .from('sensor_data')
-                .select('*')
-                .eq('UID', uid)
-                .order('date', { ascending: false })
-                .order('time', { ascending: false })
-                .limit(recordLimit);
-
-            if (error) {
-                return res.status(500).json({ error: error.message });
-            }
-            return res.status(200).json(data || []);
-        } catch (e) {
-            return res.status(500).json({ error: e.message });
-        }
-    }
-
-    // ============================================
-    // 4. GET MOLD RISK STATISTICS
-    // ============================================
-    if (type === "stats") {
-        if (!uid) {
-            return res.status(400).json({ error: "Missing uid parameter" });
-        }
-
-        try {
-            const { data, error } = await supabase
-                .from('sensor_data')
-                .select('mold_risk_category')
-                .eq('UID', uid);
-
-            if (error) {
-                return res.status(500).json({ error: error.message });
-            }
-
-            const stats = {
-                total: data?.length || 0,
-                low: 0,
-                medium: 0,
-                high: 0,
-                critical: 0
-            };
-
-            data?.forEach(record => {
-                const category = record.mold_risk_category?.toLowerCase();
-                if (category === 'low') stats.low++;
-                else if (category === 'medium') stats.medium++;
-                else if (category === 'high') stats.high++;
-                else if (category === 'critical') stats.critical++;
-            });
-
-            return res.status(200).json(stats);
-        } catch (e) {
-            return res.status(500).json({ error: e.message });
-        }
-    }
-
-    // ============================================
-    // 5. GET AVERAGE READINGS
-    // ============================================
-    if (type === "averages") {
-        if (!uid) {
-            return res.status(400).json({ error: "Missing uid parameter" });
-        }
-
-        try {
-            const { data, error } = await supabase
-                .from('sensor_data')
-                .select('temperature, humidity, pressure, light')
-                .eq('UID', uid);
-
-            if (error) {
-                return res.status(500).json({ error: error.message });
-            }
-
-            if (!data || data.length === 0) {
-                return res.status(200).json({ temperature: 0, humidity: 0, pressure: 0, light: 0, count: 0 });
-            }
-
-            const averages = {
-                temperature: data.reduce((sum, r) => sum + (r.temperature || 0), 0) / data.length,
-                humidity: data.reduce((sum, r) => sum + (r.humidity || 0), 0) / data.length,
-                pressure: data.reduce((sum, r) => sum + (r.pressure || 0), 0) / data.length,
-                light: data.reduce((sum, r) => sum + (r.light || 0), 0) / data.length,
-                count: data.length
-            };
-
-            return res.status(200).json(averages);
-        } catch (e) {
-            return res.status(500).json({ error: e.message });
-        }
-    }
-
-    return res.status(400).json({ error: "Invalid type. Use: upload_sensor, latest, history, stats, or averages" });
+    return res.status(400).json({ error: "Invalid type. Use: upload" });
 }
