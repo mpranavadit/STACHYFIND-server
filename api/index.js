@@ -8,14 +8,17 @@ export default async function handler(req, res) {
 
     const { type } = req.query;
 
-    // Upload sensor data
-    if (type === "upload_sensor" && (req.method === "POST" || req.method === "GET")) {
+    // Browser health check
+    if (req.method === "GET") {
+        return res.status(200).json({ status: "Smart Mold Risk Detector API is running." });
+    }
+
+    // Upload sensor data (POST only)
+    if (type === "upload_sensor" && req.method === "POST") {
         let raw;
 
         try {
-            raw = req.method === "GET"
-                ? req.query
-                : (typeof req.body === "string" ? JSON.parse(req.body) : req.body);
+            raw = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
         } catch (e) {
             return res.status(400).json({ error: "Invalid JSON in request body" });
         }
